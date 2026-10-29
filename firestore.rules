@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    // keep "hamza" in sync with ADMIN_USERNAME in config.js
+    function isAdmin() { return signedIn() && request.auth.token.email == 'hamza@step1-tracker.app'; }
+
+    // the admin's own study data
+    match /plan/{d} { allow read, write: if isAdmin(); }
+    match /days/{d} { allow read, write: if isAdmin(); }
+    match /uw_sessions/{d} { allow read, write: if isAdmin(); }
+    match /mistakes/{d} { allow read, write: if isAdmin(); }
+    match /exams/{d} { allow read, write: if isAdmin(); }
+    match /notes/{d} { allow read, write: if isAdmin(); }
+    match /chats/{d} { allow read, write: if isAdmin(); }
+
+    // the plan template + the shared AI key: every member reads, only the admin writes
+    match /shared/{d} { allow read: if signedIn(); allow write: if isAdmin(); }
+
+    // each member: their summary (the admin reads it) and their own data (only them)
+    match /members/{uid} {
+      allow read, write: if isAdmin() || (signedIn() && request.auth.uid == uid);
+      match /{rest=**} { allow read, write: if signedIn() && request.auth.uid == uid; }
+    }
+  }
+}
